@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pink Roses - Hiệu Ứng Hoa Hồng Pha Lê Phát Sáng 3D</title>
+    <style>
+        :root {
+            --bg-color: #0d0d11;
+            --vs-bg: #1e1e1e;
+            --accent-pink: #ff2d75;
+            --glow-pink: rgba(255, 45, 117, 0.6);
+            --text-color: #e0e0e0;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+        }
+
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: var(--bg-color);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            color: var(--text-color);
+        }
+
+        /* Nền hiệu ứng hạt sao & cánh hoa */
+        #particleCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        /* Container chính */
+        .app-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 2;
+        }
+
+        /* Chế độ 1: Toàn màn hình lãng mạn */
+        .rose-stage {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            max-width: 90vw;
+            max-height: 90vh;
+        }
+
+        .video-wrapper {
+            position: relative;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 0 50px var(--glow-pink), 0 0 100px rgba(255, 105, 180, 0.3);
+            border: 1px solid rgba(255, 105, 180, 0.4);
+            background: #000;
+            transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        /* Crop chuẩn vào cụm hoa hồng 3D phát sáng */
+        .rose-video {
+            display: block;
+            width: 480px;
+            height: 580px;
+            object-fit: cover;
+            object-position: 85% center;
+            filter: contrast(1.1) brightness(1.05) saturate(1.15);
+        }
+
+        /* Chế độ 2: VS Code Split View giống 100% video TikTok */
+        .vscode-view {
+            display: none;
+            width: 95vw;
+            height: 85vh;
+            max-width: 1200px;
+            background-color: var(--vs-bg);
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8), 0 0 30px rgba(255, 45, 117, 0.2);
+            border: 1px solid #333;
+            overflow: hidden;
+            flex-direction: column;
+        }
+
+        .vscode-titlebar {
+            height: 38px;
+            background-color: #323233;
+            display: flex;
+            align-items: center;
+            padding: 0 14px;
+            font-size: 13px;
+            color: #cccccc;
+            border-bottom: 1px solid #252526;
+            justify-content: space-between;
+        }
+
+        .vscode-dots {
+            display: flex;
+            gap: 8px;
+        }
+
+        .vscode-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+        .dot-red { background: #ff5f56; }
+        .dot-yellow { background: #ffbd2e; }
+        .dot-green { background: #27c93f; }
+
+        .vscode-body {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .code-editor {
+            flex: 1.1;
+            background-color: #1e1e1e;
+            color: #d4d4d4;
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.5;
+            padding: 15px 10px;
+            overflow-y: auto;
+            position: relative;
+            scrollbar-width: thin;
+            scrollbar-color: #424242 #1e1e1e;
+        }
+
+        .code-line {
+            display: flex;
+            white-space: pre;
+        }
+
+        .line-num {
+            width: 45px;
+            color: #858585;
+            text-align: right;
+            padding-right: 15px;
+            user-select: none;
+        }
+
+        .token-tag { color: #569cd6; }
+        .token-attr { color: #9cdcfe; }
+        .token-str { color: #ce9178; }
+        .token-kw { color: #c586c0; }
+        .token-fn { color: #dcdcaa; }
+        .token-var { color: #9cdcfe; }
+        .token-num { color: #b5cea8; }
+        .token-comment { color: #6a9955; }
+
+        .vscode-live-preview {
+            flex: 0.9;
+            background: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-left: 2px solid #2d2d2d;
+            position: relative;
+        }
+
+        .vscode-rose-video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            object-position: 85% center;
+            filter: contrast(1.1) brightness(1.05);
+        }
+
+        /* Thanh điều khiển nổi phía dưới */
+        .control-bar {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 14px;
+            background: rgba(20, 20, 28, 0.75);
+            backdrop-filter: blur(12px);
+            padding: 10px 22px;
+            border-radius: 30px;
+            border: 1px solid rgba(255, 105, 180, 0.3);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 20px rgba(255, 45, 117, 0.2);
+            z-index: 100;
+            align-items: center;
+        }
+
+        .btn {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 105, 180, 0.3);
+            color: #fff;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn:hover {
+            background: var(--accent-pink);
+            box-shadow: 0 0 15px var(--glow-pink);
+            transform: translateY(-2px);
+        }
+
+        .btn.active {
+            background: var(--accent-pink);
+            border-color: #ff6599;
+        }
+
+        /* Overlay chào mừng / Kích hoạt âm thanh */
+        .overlay-gate {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(10, 10, 14, 0.92);
+            backdrop-filter: blur(8px);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 999;
+            cursor: pointer;
+            transition: opacity 0.6s ease, visibility 0.6s ease;
+        }
+
+        .overlay-gate.hidden {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+        .overlay-content {
+            text-align: center;
+            animation: pulseGlow 2s infinite ease-in-out;
+        }
+
+        .overlay-icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+            display: inline-block;
+            animation: floatHeart 2.5s infinite ease-in-out;
+        }
+
+        .overlay-title {
+            font-size: 26px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            color: #fff;
+            text-shadow: 0 0 20px var(--accent-pink);
+            margin-bottom: 12px;
+        }
+
+        .overlay-desc {
+            font-size: 14px;
+            color: #aaa;
+            letter-spacing: 0.5px;
+        }
+
+        @keyframes pulseGlow {
+            0%, 100% { transform: scale(1); filter: drop-shadow(0 0 10px var(--glow-pink)); }
+            50% { transform: scale(1.02); filter: drop-shadow(0 0 25px var(--accent-pink)); }
+        }
+
+        @keyframes floatHeart {
+            0%, 100% { transform: translateY(0) rotate(0deg); }
+            50% { transform: translateY(-12px) rotate(6deg); }
+        }
+
+        /* Responsive trên thiết bị di động */
+        @media (max-width: 768px) {
+            .rose-video {
+                width: 320px;
+                height: 480px;
+            }
+            .vscode-view {
+                flex-direction: column;
+                height: 80vh;
+            }
+            .vscode-live-preview {
+                height: 250px;
+                flex: none;
+            }
+            .code-editor {
+                font-size: 11px;
+            }
+            .control-bar {
+                padding: 6px 14px;
+                gap: 8px;
+            }
+            .btn {
+                padding: 6px 12px;
+                font-size: 11px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Canvas hạt lấp lánh và hoa hồng rơi -->
+    <canvas id="particleCanvas"></canvas>
+
+    <!-- Âm thanh nền: Bài hát viral từ video gốc -->
+    <audio id="bgMusic" src="music.mp3" preload="auto" loop></audio>
+
+    <!-- Màn hình mở đầu kích hoạt âm thanh -->
+    <div class="overlay-gate" id="overlayGate">
+        <div class="overlay-content">
+            <div class="overlay-icon">🌹</div>
+            <div class="overlay-title">Pink Roses & 3D Crystal Magic</div>
+            <div class="overlay-desc">Chạm vào màn hình để bắt đầu hiệu ứng & âm nhạc ✨</div>
+        </div>
+    </div>
+
+    <!-- Khung chính -->
+    <div class="app-container">
+        
+        <!-- Chế độ 1: Hoa Hồng 3D Toàn Cảnh Lãng Mạn -->
+        <div class="rose-stage" id="stageMode">
+            <div class="video-wrapper">
+                <video class="rose-video" id="mainVideo" src="蝴蝶爱心代码.mp4" autoplay loop muted playsinline></video>
+            </div>
+        </div>
+
+        <!-- Chế độ 2: Tái hiện giao diện VS Code giống 100% TikTok -->
+        <div class="vscode-view" id="vscodeMode">
+            <div class="vscode-titlebar">
+                <div class="vscode-dots">
+                    <span class="vscode-dot dot-red"></span>
+                    <span class="vscode-dot dot-yellow"></span>
+                    <span class="vscode-dot dot-green"></span>
+                </div>
+                <div>index.html - Visual Studio Code (TikTok Edition)</div>
+                <div style="font-size: 11px; color: #888;">UTF-8 • HTML</div>
+            </div>
+            <div class="vscode-body">
+                <div class="code-editor" id="codeEditor">
+                    <!-- Code sẽ được render chính xác từng dòng theo video -->
+                </div>
+                <div class="vscode-live-preview">
+                    <video class="vscode-rose-video" id="vsVideo" src="蝴蝶爱心代码.mp4" autoplay loop muted playsinline></video>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Thanh điều khiển tiện ích -->
+    <div class="control-bar">
+        <button class="btn active" id="btnToggleMode">🖥️ Chuyển VS Code</button>
+        <button class="btn" id="btnMusic">🎵 Bật Nhạc</button>
+        <button class="btn" id="btnHeart">💖 Thêm Hoa & Tim</button>
+        <button class="btn" id="btnFullscreen">⛶ Toàn Màn Hình</button>
+    </div>
+
+    <script>
+        // Danh sách code hiển thị trong VS Code đúng 100% từng dòng trong video
+        const rawCodeLines = [
+            '<span class="token-tag">&lt;!DOCTYPE html&gt;</span>',
+            '<span class="token-tag">&lt;html</span> <span class="token-attr">lang</span>=<span class="token-str">"en"</span><span class="token-tag">&gt;</span>',
+            '<span class="token-tag">&lt;head&gt;</span>',
+            '    <span class="token-tag">&lt;meta</span> <span class="token-attr">charset</span>=<span class="token-str">"UTF-8"</span><span class="token-tag">&gt;</span>',
+            '    <span class="token-tag">&lt;meta</span> <span class="token-attr">name</span>=<span class="token-str">"viewport"</span> <span class="token-attr">content</span>=<span class="token-str">"width=device-width, initial-scale=1.0"</span><span class="token-tag">&gt;</span>',
+            '    <span class="token-tag">&lt;title&gt;</span>Document<span class="token-tag">&lt;/title&gt;</span>',
+            '    <span class="token-tag">&lt;script&gt;</span>',
+            '        <span class="token-kw">function</span> <span class="token-fn">initvars</span>(){',
+            '',
+            '<span class="token-var">pi</span>=<span class="token-var">Math</span>.PI;',
+            '<span class="token-var">ctx</span>=<span class="token-var">canvas</span>.<span class="token-fn">getContext</span>(<span class="token-str">"2d"</span>);',
+            '<span class="token-var">canvas</span>.<span class="token-attr">width</span>=<span class="token-var">canvas</span>.<span class="token-attr">clientWidth</span>;',
+            '<span class="token-var">canvas</span>.<span class="token-attr">height</span>=<span class="token-var">canvas</span>.<span class="token-attr">clientHeight</span>;',
+            '<span class="token-var">cx</span>=<span class="token-var">canvas</span>.<span class="token-attr">width</span>/<span class="token-num">2</span>;',
+            '<span class="token-var">cy</span>=<span class="token-var">canvas</span>.<span class="token-attr">height</span>/<span class="token-num">2</span>;',
+            '<span class="token-var">playerZ</span>=-<span class="token-num">25</span>;',
+            '<span class="token-var">playerX</span>=<span class="token-var">playerY</span>=<span class="token-var">playerVX</span>=<span class="token-var">playerVY</span>=<span class="token-var">playerVZ</span>=<span class="token-var">pitch</span>=<span class="token-var">yaw</span>=<span class="token-var">pitchV</span>=<span class="token-var">yawV</span>=<span class="token-num">0</span>;',
+            '<span class="token-var">scale</span>=<span class="token-num">600</span>;',
+            '<span class="token-var">seedTimer</span>=<span class="token-num">0</span>;<span class="token-var">seedInterval</span>=<span class="token-num">5</span>,<span class="token-var">seedLife</span>=<span class="token-num">100</span>;<span class="token-var">gravity</span>=.<span class="token-num">02</span>;',
+            '<span class="token-var">seeds</span>=<span class="token-kw">new</span> <span class="token-fn">Array</span>();',
+            '<span class="token-var">sparkPics</span>=<span class="token-kw">new</span> <span class="token-fn">Array</span>();',
+            '<span class="token-var">s</span>=<span class="token-str">"https://cantelope.org/NYE/"</span>;',
+            '<span class="token-kw">for</span>(<span class="token-var">i</span>=<span class="token-num">1</span>;<span class="token-var">i</span>&lt;=<span class="token-num">10</span>;++<span class="token-var">i</span>){',
+            '    <span class="token-var">sparkPic</span>=<span class="token-kw">new</span> <span class="token-fn">Image</span>();',
+            '    <span class="token-var">sparkPic</span>.<span class="token-attr">src</span>=<span class="token-var">s</span>+<span class="token-str">"spark"</span>+<span class="token-var">i</span>+<span class="token-str">".png"</span>;',
+            '    <span class="token-var">sparkPics</span>.<span class="token-fn">push</span>(<span class="token-var">sparkPic</span>);',
+            '}',
+            '<span class="token-var">sparks</span>=<span class="token-kw">new</span> <span class="token-fn">Array</span>();',
+            '<span class="token-var">pow1</span>=<span class="token-kw">new</span> <span class="token-fn">Audio</span>(<span class="token-var">s</span>+<span class="token-str">"pow1.ogg"</span>);',
+            '<span class="token-var">pow2</span>=<span class="token-kw">new</span> <span class="token-fn">Audio</span>(<span class="token-var">s</span>+<span class="token-str">"pow2.ogg"</span>);',
+            '<span class="token-var">pow3</span>=<span class="token-kw">new</span> <span class="token-fn">Audio</span>(<span class="token-var">s</span>+<span class="token-str">"pow3.ogg"</span>);',
+            '<span class="token-var">pow4</span>=<span class="token-kw">new</span> <span class="token-fn">Audio</span>(<span class="token-var">s</span>+<span class="token-str">"pow4.ogg"</span>);',
+            '<span class="token-var">frames</span> = <span class="token-num">0</span>;',
+            '}',
+            '',
+            '<span class="token-kw">function</span> <span class="token-fn">rasterizePoint</span>(<span class="token-var">x</span>,<span class="token-var">y</span>,<span class="token-var">z</span>){',
+            '    <span class="token-kw">var</span> <span class="token-var">p</span>,<span class="token-var">d</span>;',
+            '    <span class="token-var">x</span>-=<span class="token-var">playerX</span>;',
+            '    <span class="token-var">y</span>-=<span class="token-var">playerY</span>;',
+            '    <span class="token-var">z</span>-=<span class="token-var">playerZ</span>;',
+            '    <span class="token-var">p</span>=<span class="token-var">Math</span>.<span class="token-fn">atan2</span>(<span class="token-var">x</span>,<span class="token-var">z</span>);',
+            '    <span class="token-var">d</span>=<span class="token-var">Math</span>.<span class="token-fn">sqrt</span>(<span class="token-var">x</span>*<span class="token-var">x</span>+<span class="token-var">z</span>*<span class="token-var">z</span>);',
+            '    <span class="token-var">x</span>=<span class="token-var">Math</span>.<span class="token-fn">sin</span>(<span class="token-var">p</span>-<span class="token-var">yaw</span>)*<span class="token-var">d</span>;',
+            '    <span class="token-var">z</span>=<span class="token-var">Math</span>.<span class="token-fn">cos</span>(<span class="token-var">p</span>-<span class="token-var">yaw</span>)*<span class="token-var">d</span>;',
+            '    <span class="token-var">p</span>=<span class="token-var">Math</span>.<span class="token-fn">atan2</span>(<span class="token-var">y</span>,<span class="token-var">z</span>);',
+            '    <span class="token-var">d</span>=<span class="token-var">Math</span>.<span class="token-fn">sqrt</span>(<span class="token-var">y</span>*<span class="token-var">y</span>+<span class="token-var">z</span>*<span class="token-var">z</span>);',
+            '    <span class="token-var">y</span>=<span class="token-var">Math</span>.<span class="token-fn">sin</span>(<span class="token-var">p</span>-<span class="token-var">pitch</span>)*<span class="token-var">d</span>;',
+            '    <span class="token-var">z</span>=<span class="token-var">Math</span>.<span class="token-fn">cos</span>(<span class="token-var">p</span>-<span class="token-var">pitch</span>)*<span class="token-var">d</span>;',
+            '    <span class="token-kw">var</span> <span class="token-var">rx1</span>=-<span class="token-num">1000</span>,<span class="token-var">ry1</span>=<span class="token-num">1</span>,<span class="token-var">rx2</span>=<span class="token-num">1000</span>,<span class="token-var">ry2</span>=<span class="token-num">1</span>,<span class="token-var">rx3</span>=<span class="token-num">0</span>,<span class="token-var">ry3</span>=<span class="token-num">0</span>,<span class="token-var">rx4</span>=<span class="token-var">x</span>,<span class="token-var">ry4</span>=<span class="token-var">z</span>,<span class="token-var">uc</span>=(<span class="token-var">ry4</span>-<span class="token-var">ry3</span>)*(<span class="token-var">rx2</span>-<span class="token-var">rx1</span>)-(<span class="token-var">rx4</span>-<span class="token-var">rx3</span>)*(<span class="token-var">ry2</span>-<span class="token-var">ry1</span>);',
+            '    <span class="token-kw">if</span>(!<span class="token-var">uc</span>) <span class="token-kw">return</span> {<span class="token-var">x</span>:<span class="token-num">0</span>,<span class="token-var">y</span>:<span class="token-num">0</span>,<span class="token-var">d</span>:-<span class="token-num">1</span>};',
+            '    <span class="token-kw">var</span> <span class="token-var">ua</span>=((<span class="token-var">rx4</span>-<span class="token-var">rx3</span>)*(<span class="token-var">ry1</span>-<span class="token-var">ry3</span>)-(<span class="token-var">ry4</span>-<span class="token-var">ry3</span>)*(<span class="token-var">rx1</span>-<span class="token-var">rx3</span>))/<span class="token-var">uc</span>;',
+            '    <span class="token-kw">var</span> <span class="token-var">ub</span>=((<span class="token-var">rx2</span>-<span class="token-var">rx1</span>)*(<span class="token-var">ry1</span>-<span class="token-var">ry3</span>)-(<span class="token-var">ry2</span>-<span class="token-var">ry1</span>)*(<span class="token-var">rx1</span>-<span class="token-var">rx3</span>))/<span class="token-var">uc</span>;',
+            '    <span class="token-kw">if</span>(!<span class="token-var">z</span>)<span class="token-var">z</span>=.<span class="token-num">000000001</span>;',
+            '    <span class="token-kw">if</span>(<span class="token-var">ua</span>&gt;<span class="token-num">0</span>&amp;&amp;<span class="token-var">ua</span>&lt;<span class="token-num">1</span>&amp;&amp;<span class="token-var">ub</span>&gt;<span class="token-num">0</span>&amp;&amp;<span class="token-var">ub</span>&lt;<span class="token-num">1</span>){',
+            '        <span class="token-kw">return</span> {',
+            '            <span class="token-attr">x</span>:<span class="token-var">cx</span>+(<span class="token-var">rx1</span>+<span class="token-var">ua</span>*(<span class="token-var">rx2</span>-<span class="token-var">rx1</span>))*<span class="token-var">scale</span>,',
+            '            <span class="token-attr">y</span>:<span class="token-var">cy</span>+<span class="token-var">y</span>/<span class="token-var">z</span>*<span class="token-var">scale</span>,',
+            '            <span class="token-attr">d</span>:<span class="token-var">Math</span>.<span class="token-fn">sqrt</span>(<span class="token-var">x</span>*<span class="token-var">x</span>+<span class="token-var">y</span>*<span class="token-var">y</span>+<span class="token-var">z</span>*<span class="token-var">z</span>)',
+            '        };',
+            '    }<span class="token-kw">else</span>{',
+            '        <span class="token-kw">return</span> {',
+            '            <span class="token-attr">x</span>:<span class="token-var">cx</span>+(<span class="token-var">rx1</span>+<span class="token-var">ua</span>*(<span class="token-var">rx2</span>-<span class="token-var">rx1</span>))*<span class="token-var">scale</span>,',
+            '            <span class="token-attr">y</span>:<span class="token-var">cy</span>+<span class="token-var">y</span>/<span class="token-var">z</span>*<span class="token-var">scale</span>,',
+            '            <span class="token-attr">d</span>:-<span class="token-num">1</span>',
+            '        };',
+            '    }',
+            '}',
+            '',
+            '<span class="token-kw">function</span> <span class="token-fn">spawnSeed</span>(){',
+            '',
+            '<span class="token-var">seed</span>=<span class="token-kw">new</span> <span class="token-fn">Object</span>();',
+            '<span class="token-var">seed</span>.<span class="token-attr">x</span>=-<span class="token-num">50</span>+<span class="token-var">Math</span>.<span class="token-fn">random</span>()*<span class="token-num">100</span>;',
+            '<span class="token-var">seed</span>.<span class="token-attr">y</span>=<span class="token-num">25</span>;',
+            '<span class="token-var">seed</span>.<span class="token-attr">z</span>=-<span class="token-num">50</span>+<span class="token-var">Math</span>.<span class="token-fn">random</span>()*<span class="token-num">100</span>;',
+            '<span class="token-var">seed</span>.<span class="token-attr">vx</span>=.<span class="token-num">1</span>-<span class="token-var">Math</span>.<span class="token-fn">random</span>()*.<span class="token-num">2</span>;',
+            '<span class="token-var">seed</span>.<span class="token-attr">vy</span>=-<span class="token-num">1.5</span>;<span class="token-comment">//*(1+Math.random()/2);</span>',
+            '<span class="token-var">seed</span>.<span class="token-attr">vz</span>=.<span class="token-num">1</span>-<span class="token-var">Math</span>.<span class="token-fn">random</span>()*.<span class="token-num">2</span>;',
+            '<span class="token-var">seed</span>.<span class="token-attr">born</span>=<span class="token-var">frames</span>;',
+            '<span class="token-var">seeds</span>.<span class="token-fn">push</span>(<span class="token-var">seed</span>);',
+            '}',
+            '',
+            '<span class="token-kw">function</span> <span class="token-fn">splode</span>(<span class="token-var">x</span>,<span class="token-var">y</span>,<span class="token-var">z</span>){',
+            '',
+            '<span class="token-var">t</span>=<span class="token-num">5</span>+<span class="token-fn">parseInt</span>(<span class="token-var">Math</span>.<span class="token-fn">random</span>()*<span class="token-num">150</span>);',
+            '<span class="token-var">sparkV</span>=<span class="token-num">1</span>+<span class="token-var">Math</span>.<span class="token-fn">random</span>()*<span class="token-num">2.5</span>;',
+            '<span class="token-var">type</span>=<span class="token-fn">parseInt</span>(<span class="token-var">Math</span>.<span class="token-fn">random</span>()*<span class="token-num">3</span>);',
+            '<span class="token-kw">switch</span>(<span class="token-var">type</span>){',
+            '    <span class="token-kw">case</span> <span class="token-num">0</span>:',
+            '        <span class="token-var">pic1</span>=<span class="token-fn">parseInt</span>(<span class="token-var">Math</span>.<span class="token-fn">random</span>()*<span class="token-num">10</span>);',
+            '        <span class="token-kw">break</span>;',
+            '    <span class="token-kw">case</span> <span class="token-num">1</span>:',
+            '        <span class="token-var">pic1</span>=<span class="token-fn">parseInt</span>(<span class="token-var">Math</span>.<span class="token-fn">random</span>()*<span class="token-num">10</span>);',
+            '        <span class="token-kw">do</span>{ <span class="token-var">pic2</span>=<span class="token-fn">parseInt</span>(<span class="token-var">Math</span>.<span class="token-fn">random</span>()*<span class="token-num">10</span>); }<span class="token-kw">while</span>(<span class="token-var">pic2</span>==<span class="token-var">pic1</span>);',
+            '        <span class="token-kw">break</span>;',
+            '    <span class="token-kw">case</span> <span class="token-num">2</span>:',
+            '        <span class="token-var">pic1</span>=<span class="token-fn">parseInt</span>(<span class="token-var">Math</span>.<span class="token-fn">random</span>()*<span class="token-num">10</span>);',
+            '        <span class="token-kw">do</span>{ <span class="token-var">pic2</span>=<span class="token-fn">parseInt</span>(<span class="token-var">Math</span>.<span class="token-fn">random</span>()*<span class="token-num">10</span>); }<span class="token-kw">while</span>(<span class="token-var">pic2</span>==<span class="token-var">pic1</span>);',
+            '        <span class="token-kw">do</span>{ <span class="token-var">pic3</span>=<span class="token-fn">parseInt</span>(<span class="token-var">Math</span>.<span class="token-fn">random</span>()*<span class="token-num">10</span>); }<span class="token-kw">while</span>(<span class="token-var">pic3</span>==<span class="token-var">pic1</span> || <span class="token-var">pic3</span>==<span class="token-var">pic2</span>);',
+            '        <span class="token-kw">break</span>;',
+            '}',
+            '<span class="token-kw">for</span>(<span class="token-var">m</span>=<span class="token-num">1</span>;<span class="token-var">m</span>&lt;<span class="token-var">t</span>;++<span class="token-var">m</span>){',
+            '    <span class="token-var">spark</span>=<span class="token-kw">new</span> <span class="token-fn">Object</span>();',
+            '    <span class="token-var">spark</span>.<span class="token-attr">x</span>=<span class="token-var">x</span>; <span class="token-var">spark</span>.<span class="token-attr">y</span>=<span class="token-var">y</span>; <span class="token-var">spark</span>.<span class="token-attr">z</span>=<span class="token-var">z</span>;',
+            '    <span class="token-var">p1</span>=<span class="token-var">pi</span>*<span class="token-num">2</span>*<span class="token-var">Math</span>.<span class="token-fn">random</span>();',
+            '    <span class="token-var">p2</span>=<span class="token-var">pi</span>*<span class="token-var">Math</span>.<span class="token-fn">random</span>();',
+            '    <span class="token-var">v</span>=<span class="token-var">sparkV</span>*(<span class="token-num">1</span>+<span class="token-var">Math</span>.<span class="token-fn">random</span>()/<span class="token-num">6</span>);',
+            '    <span class="token-var">spark</span>.<span class="token-attr">vx</span>=<span class="token-var">Math</span>.<span class="token-fn">sin</span>(<span class="token-var">p1</span>)*<span class="token-var">Math</span>.<span class="token-fn">sin</span>(<span class="token-var">p2</span>)*<span class="token-var">v</span>;',
+            '    <span class="token-var">spark</span>.<span class="token-attr">vz</span>=<span class="token-var">Math</span>.<span class="token-fn">cos</span>(<span class="token-var">p1</span>)*<span class="token-var">Math</span>.<span class="token-fn">sin</span>(<span class="token-var">p2</span>)*<span class="token-var">v</span>;',
+            '    <span class="token-var">spark</span>.<span class="token-attr">vy</span>=<span class="token-var">Math</span>.<span class="token-fn">cos</span>(<span class="token-var">p2</span>)*<span class="token-var">v</span>;',
+            '    <span class="token-kw">switch</span>(<span class="token-var">type</span>){',
+            '        <span class="token-kw">case</span> <span class="token-num">0</span>: <span class="token-var">spark</span>.<span class="token-attr">img</span>=<span class="token-var">sparkPics</span>[<span class="token-var">pic1</span>]; <span class="token-kw">break</span>;',
+            '        <span class="token-kw">case</span> <span class="token-num">1</span>:',
+            '            <span class="token-var">spark</span>.<span class="token-attr">img</span>=<span class="token-var">sparkPics</span>[<span class="token-fn">parseInt</span>(<span class="token-var">Math</span>.<span class="token-fn">random</span>()*<span class="token-num">2</span>)?<span class="token-var">pic1</span>:<span class="token-var">pic2</span>];',
+            '            <span class="token-kw">break</span>;',
+            '        <span class="token-kw">case</span> <span class="token-num">2</span>:',
+            '            <span class="token-kw">switch</span>(<span class="token-fn">parseInt</span>(<span class="token-var">Math</span>.<span class="token-fn">random</span>()*<span class="token-num">3</span>)){',
+            '                <span class="token-kw">case</span> <span class="token-num">0</span>: <span class="token-var">spark</span>.<span class="token-attr">img</span>=<span class="token-var">sparkPics</span>[<span class="token-var">pic1</span>]; <span class="token-kw">break</span>;',
+            '                <span class="token-kw">case</span> <span class="token-num">1</span>: <span class="token-var">spark</span>.<span class="token-attr">img</span>=<span class="token-var">sparkPics</span>[<span class="token-var">pic2</span>]; <span class="token-kw">break</span>;',
+            '                <span class="token-kw">case</span> <span class="token-num">2</span>: <span class="token-var">spark</span>.<span class="token-attr">img</span>=<span class="token-var">sparkPics</span>[<span class="token-var">pic3</span>]; <span class="token-kw">break</span>;',
+            '            }',
+            '            <span class="token-kw">break</span>;',
+            '    }',
+            '    <span class="token-var">spark</span>.<span class="token-attr">radius</span>=<span class="token-num">25</span>+<span class="token-var">Math</span>.<span class="token-fn">random</span>()*<span class="token-num">50</span>;',
+            '    <span class="token-var">spark</span>.<span class="token-attr">alpha</span>=<span class="token-num">1</span>;',
+            '    <span class="token-var">spark</span>.<span class="token-attr">trail</span>=<span class="token-kw">new</span> <span class="token-fn">Array</span>();',
+            '    <span class="token-var">sparks</span>.<span class="token-fn">push</span>(<span class="token-var">spark</span>);',
+            '}',
+            '<span class="token-kw">switch</span>(<span class="token-fn">parseInt</span>(<span class="token-var">Math</span>.<span class="token-fn">random</span>()*<span class="token-num">4</span>)){',
+            '    <span class="token-kw">case</span> <span class="token-num">0</span>: <span class="token-var">pow</span>=<span class="token-kw">new</span> <span class="token-fn">Audio</span>(<span class="token-var">s</span>+<span class="token-str">"pow1.ogg"</span>); <span class="token-kw">break</span>;',
+            '    <span class="token-kw">case</span> <span class="token-num">1</span>: <span class="token-var">pow</span>=<span class="token-kw">new</span> <span class="token-fn">Audio</span>(<span class="token-var">s</span>+<span class="token-str">"pow2.ogg"</span>); <span class="token-kw">break</span>;',
+            '    <span class="token-kw">case</span> <span class="token-num">2</span>: <span class="token-var">pow</span>=<span class="token-kw">new</span> <span class="token-fn">Audio</span>(<span class="token-var">s</span>+<span class="token-str">"pow3.ogg"</span>); <span class="token-kw">break</span>;',
+            '    <span class="token-kw">case</span> <span class="token-num">3</span>: <span class="token-var">pow</span>=<span class="token-kw">new</span> <span class="token-fn">Audio</span>(<span class="token-var">s</span>+<span class="token-str">"pow4.ogg"</span>); <span class="token-kw">break</span>;',
+            '}',
+            '<span class="token-var">d</span>=<span class="token-var">Math</span>.<span class="token-fn">sqrt</span>((<span class="token-var">x</span>-<span class="token-var">playerX</span>)*(<span class="token-var">x</span>-<span class="token-var">playerX</span>)+(<span class="token-var">y</span>-<span class="token-var">playerY</span>)*(<span class="token-var">y</span>-<span class="token-var">playerY</span>)+(<span class="token-var">z</span>-<span class="token-var">playerZ</span>)*(<span class="token-var">z</span>-<span class="token-var">playerZ</span>));',
+            '<span class="token-var">pow</span>.<span class="token-attr">volume</span>=<span class="token-num">1.5</span>/(<span class="token-num">1</span>+<span class="token-var">d</span>/<span class="token-num">10</span>);',
+            '<span class="token-var">pow</span>.<span class="token-fn">play</span>();',
+            '}',
+            '',
+            '<span class="token-kw">function</span> <span class="token-fn">doLogic</span>(){',
+            '',
+            '<span class="token-kw">if</span>(<span class="token-var">seedTimer</span>&lt;<span class="token-var">frames</span>){',
+            '    <span class="token-var">seedTimer</span>=<span class="token-var">frames</span>+<span class="token-var">seedInterval</span>*<span class="token-var">Math</span>.<span class="token-fn">random</span>()*<span class="token-num">10</span>;',
+            '    <span class="token-fn">spawnSeed</span>();',
+            '}',
+            '<span class="token-kw">for</span>(<span class="token-var">i</span>=<span class="token-num">0</span>;<span class="token-var">i</span>&lt;<span class="token-var">seeds</span>.<span class="token-attr">length</span>;++<span class="token-var">i</span>){',
+            '    <span class="token-var">seeds</span>[<span class="token-var">i</span>].<span class="token-attr">vy</span>+=<span class="token-var">gravity</span>;',
+            '    <span class="token-var">seeds</span>[<span class="token-var">i</span>].<span class="token-attr">x</span>+=<span class="token-var">seeds</span>[<span class="token-var">i</span>].<span class="token-attr">vx</span>;',
+            '    <span class="token-var">seeds</span>[<span class="token-var">i</span>].<span class="token-attr">y</span>+=<span class="token-var">seeds</span>[<span class="token-var">i</span>].<span class="token-attr">vy</span>;',
+            '    <span class="token-var">seeds</span>[<span class="token-var">i</span>].<span class="token-attr">z</span>+=<span class="token-var">seeds</span>[<span class="token-var">i</span>].<span class="token-attr">vz</span>;',
+            '    <span class="token-kw">if</span>(<span class="token-var">frames</span>-<span class="token-var">seeds</span>[<span class="token-var">i</span>].<span class="token-attr">born</span>&gt;<span class="token-var">seedLife</span>){',
+            '        <span class="token-fn">splode</span>(<span class="token-var">seeds</span>[<span class="token-var">i</span>].<span class="token-attr">x</span>,<span class="token-var">seeds</span>[<span class="token-var">i</span>].<span class="token-attr">y</span>,<span class="token-var">seeds</span>[<span class="token-var">i</span>].<span class="token-attr">z</span>);',
+            '        <span class="token-var">seeds</span>.<span class="token-fn">splice</span>(<span class="token-var">i</span>,<span class="token-num">1</span>);',
+            '    }',
+            '}',
+            '<span class="token-kw">for</span>(<span class="token-var">i</span>=<span class="token-num">0</span>;<span class="token-var">i</span>&lt;<span class="token-var">sparks</span>.<span class="token-attr">length</span>;++<span class="token-var">i</span>){',
+            '    <span class="token-kw">if</span>(<span class="token-var">sparks</span>[<span class="token-var">i</span>].<span class="token-attr">alpha</span>&gt;<span class="token-num">0</span> &amp;&amp; <span class="token-var">sparks</span>[<span class="token-var">i</span>].<span class="token-attr">radius</span>&gt;<span class="token-num">5</span>){',
+            '        <span class="token-var">sparks</span>[<span class="token-var">i</span>].<span class="token-attr">alpha</span>-=-.<span class="token-num">01</span>;',
+            '        <span class="token-var">sparks</span>[<span class="token-var">i</span>].<span class="token-attr">radius</span>/=<span class="token-num">1.02</span>;',
+            '        <span class="token-var">sparks</span>[<span class="token-var">i</span>].<span class="token-attr">vy</span>+=<span class="token-var">gravity</span>;',
+            '        <span class="token-var">point</span>=<span class="token-kw">new</span> <span class="token-fn">Object</span>();',
+            '        <span class="token-var">point</span>.<span class="token-attr">x</span>=<span class="token-var">sparks</span>[<span class="token-var">i</span>].<span class="token-attr">x</span>;',
+            '        <span class="token-var">point</span>.<span class="token-attr">y</span>=<span class="token-var">sparks</span>[<span class="token-var">i</span>].<span class="token-attr">y</span>;',
+            '        <span class="token-var">point</span>.<span class="token-attr">z</span>=<span class="token-var">sparks</span>[<span class="token-var">i</span>].<span class="token-attr">z</span>;',
+            '        <span class="token-kw">if</span>(<span class="token-var">sparks</span>[<span class="token-var">i</span>].<span class="token-attr">trail</span>.<span class="token-attr">length</span>){',
+            '            <span class="token-var">x</span>=<span class="token-var">sparks</span>[<span class="token-var">i</span>].<span class="token-attr">trail</span>[<span class="token-var">sparks</span>[<span class="token-var">i</span>].<span class="token-attr">trail</span>.<span class="token-attr">length</span>-<span class="token-num">1</span>].<span class="token-attr">x</span>;',
+            '            <span class="token-var">y</span>=<span class="token-var">sparks</span>[<span class="token-var">i</span>].<span class="token-attr">trail</span>[<span class="token-var">sparks</span>[<span class="token-var">i</span>].<span class="token-attr">trail</span>.<span class="token-attr">length</span>-<span class="token-num">1</span>].<span class="token-attr">y</span>;',
+            '            <span class="token-var">z</span>=<span class="token-var">sparks</span>[<span class="token-var">i</span>].<span class="token-attr">trail</span>[<span class="token-var">sparks</span>[<span class="token-var">i</span>].<span class="token-attr">trail</span>.<span class="token-attr">length</span>-<span class="token-num">1</span>].<span class="token-attr">z</span>;',
+            '            <span class="token-var">d</span>=((<span class="token-var">point</span>.<span class="token-attr">x</span>-<span class="token-var">x</span>)*(<span class="token-var">point</span>.<span class="token-attr">x</span>-<span class="token-var">x</span>)+(<span class="token-var">point</span>.<span class="token-attr">y</span>-<span class="token-var">y</span>)*(<span class="token-var">point</span>.<span class="token-attr">y</span>-<span class="token-var">y</span>)+(<span class="token-var">point</span>.<span class="token-attr">z</span>-<span class="token-var">z</span>)*(<span class="token-var">point</span>.<span class="token-attr">z</span>-<span class="token-var">z</span>));',
+            '            <span class="token-kw">if</span>(<span class="token-var">d</span>&gt;<span class="token-num">9</span>){',
+            '                <span class="token-var">sparks</span>[<span class="token-var">i</span>].<span class="token-attr">trail</span>.<span class="token-fn">push</span>(<span class="token-var">point</span>);',
+            '            }',
+            '        }<span class="token-kw">else</span>{',
+            '            <span class="token-var">sparks</span>[<span class="token-var">i</span>].<span class="token-attr">trail</span>.<span class="token-fn">push</span>(<span class="token-var">point</span>);',
+            '        }',
+            '        <span class="token-kw">if</span>(<span class="token-var">sparks</span>[<span class="token-var">i</span>].<span class="token-attr">trail</span>.<span class="token-attr">length</span>&gt;<span class="token-num">5</span>)<span class="token-var">sparks</span>[<span class="token-var">i</span>].<span class="token-attr">trail</span>.<span class="token-fn">splice</span>(<span class="token-num">0</span>,<span class="token-num">1</span>);',
+            '        <span class="token-var">sparks</span>[<span class="token-var">i</span>].<span class="token-attr">x</span>+=<span class="token-var">sparks</span>[<span class="token-var">i</span>].<span class="token-attr">vx</span>;',
+            '        <span class="token-var">sparks</span>[<span class="token-var">i</span>].<span class="token-attr">y</span>+=<span class="token-var">sparks</span>[<span class="token-var">i</span>].<span class="token-attr">vy</span>;',
+            '        <span class="token-var">sparks</span>[<span class="token-var">i</span>].<span class="token-attr">z</span>+=<span class="token-var">sparks</span>[<span class="token-var">i</span>].<span class="token-attr">vz</span>;',
+            '        <span class="token-var">sparks</span>[<span class="token-var">i</span>].<span class="token-attr">vx</span>/=<span class="token-num">1.075</span>;',
+            '        <span class="token-var">sparks</span>[<span class="token-var">i</span>].<span class="token-attr">vy</span>/=<span class="token-num">1.075</span>;',
+            '        <span class="token-var">sparks</span>[<span class="token-var">i</span>].<span class="token-attr">vz</span>/=<span class="token-num">1.075</span>;',
+            '    }<span class="token-kw">else</span>{',
+            '        <span class="token-var">sparks</span>.<span class="token-fn">splice</span>(<span class="token-var">i</span>,<span class="token-num">1</span>);',
+            '    }',
+            '}',
+            '<span class="token-var">p</span>=<span class="token-var">Math</span>.<span class="token-fn">atan2</span>(<span class="token-var">playerX</span>,<span class="token-var">playerZ</span>);',
+            '<span class="token-var">d</span>=<span class="token-var">Math</span>.<span class="token-fn">sqrt</span>(<span class="token-var">playerX</span>*<span class="token-var">playerX</span>+<span class="token-var">playerZ</span>*<span class="token-var">playerZ</span>);',
+            '<span class="token-var">d</span>+=<span class="token-var">Math</span>.<span class="token-fn">sin</span>(<span class="token-var">frames</span>/<span class="token-num">80</span>)/<span class="token-num">1.25</span>;',
+            '<span class="token-var">t</span>=<span class="token-var">Math</span>.<span class="token-fn">sin</span>(<span class="token-var">frames</span>/<span class="token-num">200</span>)/<span class="token-num">40</span>;',
+            '<span class="token-var">playerX</span>=<span class="token-var">Math</span>.<span class="token-fn">sin</span>(<span class="token-var">p</span>+<span class="token-var">t</span>)*<span class="token-var">d</span>;',
+            '<span class="token-var">playerZ</span>=<span class="token-var">Math</span>.<span class="token-fn">cos</span>(<span class="token-var">p</span>+<span class="token-var">t</span>)*<span class="token-var">d</span>;',
+            '<span class="token-var">yaw</span>=<span class="token-var">pi</span>+<span class="token-var">p</span>+<span class="token-var">t</span>;',
+            '}',
+            '    <span class="token-tag">&lt;/script&gt;</span>',
+            '<span class="token-tag">&lt;/head&gt;</span>',
+            '<span class="token-tag">&lt;body&gt;</span>',
+            '<span class="token-tag">&lt;video</span> <span class="token-attr">src</span>=<span class="token-str">"蝴蝶爱心代码.mp4"</span> <span class="token-attr">autoplay</span> <span class="token-attr">loop</span><span class="token-tag">&gt;&lt;/video&gt;</span>',
+            '<span class="token-tag">&lt;/body&gt;</span>',
+            '<span class="token-tag">&lt;/html&gt;</span>'
+        ];
+
+        // Render code lines vào VS Code editor
+        const codeEditor = document.getElementById('codeEditor');
+        let codeHtml = '';
+        rawCodeLines.forEach((line, index) => {
+            const lineNum = index + 1;
+            codeHtml += `<div class="code-line"><span class="line-num">${lineNum}</span><span>${line}</span></div>`;
+        });
+        codeEditor.innerHTML = codeHtml;
+
+        // Auto cuộn mã từ từ trong VS Code để tạo hiệu ứng như video
+        let autoScroll = true;
+        setInterval(() => {
+            if (autoScroll && document.getElementById('vscodeMode').style.display === 'flex') {
+                if (codeEditor.scrollTop + codeEditor.clientHeight >= codeEditor.scrollHeight - 5) {
+                    codeEditor.scrollTop = 0;
+                } else {
+                    codeEditor.scrollTop += 1;
+                }
+            }
+        }, 60);
+
+        codeEditor.addEventListener('mouseenter', () => autoScroll = false);
+        codeEditor.addEventListener('mouseleave', () => autoScroll = true);
+
+        // Quản lý âm thanh & Video
+        const bgMusic = document.getElementById('bgMusic');
+        const mainVideo = document.getElementById('mainVideo');
+        const vsVideo = document.getElementById('vsVideo');
+        const overlayGate = document.getElementById('overlayGate');
+        const btnMusic = document.getElementById('btnMusic');
+        let isPlaying = false;
+
+        function startExperience() {
+            overlayGate.classList.add('hidden');
+            mainVideo.play().catch(() => {});
+            vsVideo.play().catch(() => {});
+            bgMusic.play().then(() => {
+                isPlaying = true;
+                btnMusic.textContent = '⏸️ Tắt Nhạc';
+                btnMusic.classList.add('active');
+            }).catch(() => {
+                isPlaying = false;
+                btnMusic.textContent = '🎵 Bật Nhạc';
+            });
+        }
+
+        overlayGate.addEventListener('click', startExperience);
+
+        btnMusic.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (bgMusic.paused) {
+                bgMusic.play();
+                isPlaying = true;
+                btnMusic.textContent = '⏸️ Tắt Nhạc';
+                btnMusic.classList.add('active');
+            } else {
+                bgMusic.pause();
+                isPlaying = false;
+                btnMusic.textContent = '🎵 Bật Nhạc';
+                btnMusic.classList.remove('active');
+            }
+        });
+
+        // Chuyển đổi giữa Chế độ Toàn Màn Hình & Chế độ VS Code
+        const stageMode = document.getElementById('stageMode');
+        const vscodeMode = document.getElementById('vscodeMode');
+        const btnToggleMode = document.getElementById('btnToggleMode');
+        let currentMode = 'stage'; // 'stage' hoặc 'vscode'
+
+        btnToggleMode.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (currentMode === 'stage') {
+                currentMode = 'vscode';
+                stageMode.style.display = 'none';
+                vscodeMode.style.display = 'flex';
+                btnToggleMode.textContent = '🌹 Toàn Cảnh Hoa';
+                btnToggleMode.classList.remove('active');
+            } else {
+                currentMode = 'stage';
+                vscodeMode.style.display = 'none';
+                stageMode.style.display = 'flex';
+                btnToggleMode.textContent = '🖥️ Chuyển VS Code';
+                btnToggleMode.classList.add('active');
+            }
+        });
+
+        // Chế độ toàn màn hình trình duyệt
+        const btnFullscreen = document.getElementById('btnFullscreen');
+        btnFullscreen.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(() => {});
+                btnFullscreen.textContent = '⛶ Thoát Toàn Màn';
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                    btnFullscreen.textContent = '⛶ Toàn Màn Hình';
+                }
+            }
+        });
+
+        // Hiệu ứng Canvas: Hạt phát sáng & Cánh hoa lãng mạn
+        const canvas = document.getElementById('particleCanvas');
+        const ctx = canvas.getContext('2d');
+        let particles = [];
+        const colors = ['#ff2d75', '#ff69b4', '#ffb6c1', '#ffffff', '#ff1493'];
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        class Particle {
+            constructor(x, y, isClick = false) {
+                this.x = x || Math.random() * canvas.width;
+                this.y = y || (isClick ? y : Math.random() * canvas.height);
+                this.size = Math.random() * 3 + 1;
+                this.speedX = isClick ? (Math.random() - 0.5) * 6 : (Math.random() - 0.5) * 1.5;
+                this.speedY = isClick ? (Math.random() - 0.5) * 6 : Math.random() * 1.2 + 0.3;
+                this.color = colors[Math.floor(Math.random() * colors.length)];
+                this.alpha = isClick ? 1 : Math.random() * 0.7 + 0.2;
+                this.decay = isClick ? Math.random() * 0.02 + 0.01 : 0;
+                this.rotation = Math.random() * Math.PI * 2;
+                this.rotSpeed = (Math.random() - 0.5) * 0.05;
+                this.isHeart = Math.random() > 0.6;
+            }
+
+            update() {
+                this.x += this.speedX;
+                this.y += this.speedY;
+                this.rotation += this.rotSpeed;
+
+                if (this.decay > 0) {
+                    this.alpha -= this.decay;
+                } else if (this.y > canvas.height + 20) {
+                    this.y = -20;
+                    this.x = Math.random() * canvas.width;
+                }
+            }
+
+            draw() {
+                if (this.alpha <= 0) return;
+                ctx.save();
+                ctx.globalAlpha = this.alpha;
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.rotation);
+
+                if (this.isHeart) {
+                    // Vẽ trái tim nhỏ
+                    ctx.fillStyle = this.color;
+                    ctx.beginPath();
+                    const d = this.size * 1.8;
+                    ctx.moveTo(0, 0);
+                    ctx.bezierCurveTo(-d / 2, -d / 2, -d, d / 3, 0, d);
+                    ctx.bezierCurveTo(d, d / 3, d / 2, -d / 2, 0, 0);
+                    ctx.fill();
+                } else {
+                    // Vẽ hạt phát sáng
+                    ctx.fillStyle = this.color;
+                    ctx.shadowBlur = 10;
+                    ctx.shadowColor = this.color;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, this.size, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.restore();
+            }
+        }
+
+        // Khởi tạo hạt ban đầu
+        for (let i = 0; i < 75; i++) {
+            particles.push(new Particle());
+        }
+
+        function createBurst(x, y, count = 25) {
+            for (let i = 0; i < count; i++) {
+                particles.push(new Particle(x, y, true));
+            }
+        }
+
+        window.addEventListener('click', (e) => {
+            if (e.target.closest('.control-bar') || e.target.closest('.overlay-gate')) return;
+            createBurst(e.clientX, e.clientY, 20);
+        });
+
+        document.getElementById('btnHeart').addEventListener('click', (e) => {
+            e.stopPropagation();
+            for (let i = 0; i < 35; i++) {
+                createBurst(window.innerWidth / 2 + (Math.random() - 0.5) * 300, window.innerHeight / 2 + (Math.random() - 0.5) * 300, 2);
+            }
+        });
+
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            for (let i = particles.length - 1; i >= 0; i--) {
+                particles[i].update();
+                particles[i].draw();
+                if (particles[i].alpha <= 0) {
+                    particles.splice(i, 1);
+                }
+            }
+            while (particles.length < 75) {
+                particles.push(new Particle());
+            }
+            requestAnimationFrame(animate);
+        }
+        animate();
+    </script>
+</body>
+</html>
